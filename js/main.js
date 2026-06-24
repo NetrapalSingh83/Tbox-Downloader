@@ -1,5 +1,5 @@
 // Initialize Feather Icons and API configuration
-const API_BASE_URL = 'http://127.0.0.1:5000';
+const API_BASE_URL = 'https://tbox-downloader.onrender.com';
 let currentMode = 3;
 
 document.addEventListener("DOMContentLoaded", async () => {
