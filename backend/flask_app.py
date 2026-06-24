@@ -6,7 +6,7 @@ from flask import Flask, Response, request
 from flask_cors import CORS
 app = Flask(import_name=__name__)
 # Update CORS to allow requests from any origin during development
-CORS(app=app, resources={r"/*": {"origins": "https://netrapalsingh83.github.io/Tbox-Downloader/"}})  # Allow requests from frontend
+CORS(app=app, resources={r"/*": {"origins": "http://127.0.0.1:5500/"}})  # Allow requests from frontend
 
 #--> Local module
 from python.terabox1 import TeraboxFile as TF1, TeraboxLink as TL1
