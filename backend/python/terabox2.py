@@ -54,8 +54,15 @@ class TeraboxFile():
     #--> Main control (get short_url, init authorization, and get root file)
     def search(self, url:str) -> None:
 
-        req : str = self.r.get(url, allow_redirects=True)
-        self.short_url : str = re.search(r'surl=([^ &]+)',str(req.url)).group(1)
+        req = self.r.get(url, allow_redirects=True, timeout=20)
+        match = re.search(r'surl=([^ &]+)', str(req.url))
+        if not match:
+            match = re.search(r'surl=([^ &]+)', str(url))
+        if not match:
+            match = re.search(r'/s/([A-Za-z0-9_\-]+)', str(req.url))
+        if not match:
+            raise ValueError(f"Could not find surl in URL: {req.url}")
+        self.short_url : str = match.group(1)
         self.getAuthorization()
         self.getMainFile()
 
