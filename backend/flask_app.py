@@ -1,121 +1,157 @@
-#--> Standard module & library
-import json
+# ─────────────────────────────────────────────────────────────────────────────
+#  Tbox Downloader – Flask Backend
+#  Mode 1 (primary)  : terabox1.py  → Direct Terabox APIs, zero third-party
+#  Mode 2 (fallback) : terabox2.py  → Cookie-based, still zero third-party
+#
+#  /generate_file  → returns file list + sign/timestamp/uk/shareid/js_token
+#  /generate_link  → returns 3 download links + 1 stream link
+# ─────────────────────────────────────────────────────────────────────────────
 
-#--> Flask
+import json
 from flask import Flask, Response, request
 from flask_cors import CORS
-app = Flask(import_name=__name__)
-# Update CORS to allow requests from any origin during development
-CORS(app=app, resources={r"/*": {"origins": "http://127.0.0.1:5500/"}})  # Allow requests from frontend
 
-#--> Local module
+app = Flask(__name__)
+
+# During development: allow all origins.
+# Before deploying: change "*" to your actual frontend URL, e.g.
+#   "https://netrapalsingh83.github.io"
+CORS(app, resources={r"/*": {"origins": "https://netrapalsingh83.github.io/Tbox-Downloader/"}})
+
 from python.terabox1 import TeraboxFile as TF1, TeraboxLink as TL1
-from python.terabox2 import TeraboxFile as TF2, TeraboxLink as TL2, TeraboxSession as TS
-from python.terabox3 import TeraboxFile as TF3, TeraboxLink as TL3
+from python.terabox2 import TeraboxFile as TF2
 
-#--> Global Variable
-default_mode = 3
-config : dict[str,any] = {
-    'status'  : 'failed',
-    'message' : 'cookie terabox nya invalid bos, coba lapor ke dapunta',
-    'mode'    : default_mode,
-    'cookie'  : ''
-}
+# ── helpers ───────────────────────────────────────────────────────────────────
 
-#--> Main
-@app.route(rule='/')
-def stream() -> Response:
-    response: dict[str,str] = {
-        'status'  : 'success',
-        'service' : [
-            {
-                'method'   : 'GET',
-                'endpoint' : 'get_config',
-                'url'      : '{}get_config'.format(request.url_root),
-                'params'   : [],
-                'response' : ['status', 'message', 'mode', 'cookie']},
-            {
-                'method'   : 'POST',
-                'endpoint' : 'generate_file',
-                'url'      : '{}generate_file'.format(request.url_root),
-                'params'   : ['mode', 'url'],
-                'response' : ['status', 'js_token', 'browser_id', 'cookie', 'sign', 'timestamp', 'shareid', 'uk', 'list']},
-            {
-                'method'   : 'POST',
-                'endpoint' : 'generate_link',
-                'url'      : '{}generate_link'.format(request.url_root),
-                'params'   : {
-                    'mode1' : ['mode', 'js_token', 'cookie', 'sign', 'timestamp', 'shareid', 'uk', 'fs_id'],
-                    'mode2' : ['mode', 'url'],
-                    'mode3' : ['mode', 'shareid', 'uk', 'sign', 'timestamp', 'fs_id'],
-                },
-                'response' : ['status', 'download_link']}],
-        'message' : 'hayo mau ngapain?'}
-    return Response(response=json.dumps(obj=response, sort_keys=False), mimetype='application/json')
+def json_response(data: dict, status: int = 200) -> Response:
+    return Response(
+        response=json.dumps(data, sort_keys=False),
+        status=status,
+        mimetype="application/json"
+    )
 
-#--> Get Config App
-@app.route('/get_config', methods=['GET'])
-def getConfig() -> Response:
-    global config
+# ── routes ────────────────────────────────────────────────────────────────────
+
+@app.route("/")
+def index():
+    return json_response({
+        "status": "ok",
+        "message": "Tbox Downloader API is running",
+        "endpoints": ["/get_config", "/generate_file", "/generate_link"]
+    })
+
+
+@app.route("/get_config", methods=["GET"])
+def get_config():
+    return json_response({
+        "status": "success",
+        "message": "API ready – your own backend, no third-party"
+    })
+
+
+@app.route("/generate_file", methods=["POST"])
+def generate_file():
+    """
+    Body:  { "url": "<terabox share link>" }
+    Returns:
+      {
+        status, uk, shareid, sign, timestamp,
+        js_token, cookie,
+        list: [ { name, size, type, fs_id, image, is_dir, list } ]
+      }
+    Tries Mode 1 first (direct Terabox), then Mode 2 (cookie-based fallback).
+    """
     try:
-        x = TS()
-        x.generateCookie()
-        x.generateAuth()
-        log = x.isLogin
-        config = {'status':'success', **x.data} if log else {'status':'failed', 'message':'cookie terabox nya invalid bos, coba lapor ke dapunta', 'mode':default_mode, 'cookie':''}
+        data = request.get_json(silent=True) or {}
+        url  = (data.get("url") or "").strip()
+
+        if not url:
+            return json_response({"status": "failed", "message": "url is required"}, 400)
+
+        # ── Mode 1: Direct Terabox ────────────────────────────────────────────
+        try:
+            tf = TF1()
+            tf.search(url)
+            if tf.result.get("status") == "success":
+                print("[Mode 1] SUCCESS")
+                return json_response(tf.result)
+            print("[Mode 1] returned non-success:", tf.result.get("status"))
+        except Exception as e:
+            print(f"[Mode 1] Exception: {e}")
+
+        # ── Mode 2: Cookie-based fallback ─────────────────────────────────────
+        try:
+            tf = TF2(cookie="")
+            tf.search(url)
+            if tf.result.get("status") == "success":
+                print("[Mode 2] SUCCESS")
+                return json_response(tf.result)
+            print("[Mode 2] returned non-success:", tf.result.get("status"))
+        except Exception as e:
+            print(f"[Mode 2] Exception: {e}")
+
+        return json_response({
+            "status": "failed",
+            "message": "Could not fetch file info from Terabox. The link may be invalid or expired."
+        })
+
     except Exception as e:
-        config = {'status':'failed', 'message':'i dont know why error in config.json : {}'.format(str(e)), 'mode':default_mode, 'cookie':''}
-    return Response(response=json.dumps(obj=config, sort_keys=False), mimetype='application/json')
+        return json_response({"status": "failed", "message": str(e)})
 
-#--> Get file
-@app.route(rule='/generate_file', methods=['POST'])
-def getFile() -> Response:
-    global config
+
+@app.route("/generate_link", methods=["POST"])
+def generate_link():
+    """
+    Body:  { fs_id, uk, shareid, timestamp, sign, js_token, cookie }
+    Returns:
+      {
+        status,
+        download_link: {
+          url_1: "...",   ← Standard speed  (Terabox dlink)
+          url_2: "...",   ← Fast speed      (CDN direct, by=dapunta)
+          url_3: "..."    ← Fastest speed   (d3 CDN domain, by=dapunta)
+        },
+        stream_link: "..."  ← url_2 or url_1, best for <video> src
+      }
+    """
     try:
-        data : dict = request.get_json()
-        result = {'status':'failed', 'message':'invalid params'}
-        mode = config.get('mode', default_mode)
-        cookie = config.get('cookie','')
-        if data.get('url') and mode:
-            if   mode == 1: TF = TF1()
-            elif mode == 2: TF = TF2(cookie)
-            elif mode == 3: TF = TF3()
-            TF.search(data.get('url'))
-            result = TF.result
-    except Exception as e: result = {'status':'failed', 'message':'i dont know why error in terabox app : {}'.format(str(e))}
-    return Response(response=json.dumps(obj=result, sort_keys=False), mimetype='application/json')
+        data     = request.get_json(silent=True) or {}
+        required = {"fs_id", "uk", "shareid", "timestamp", "sign", "js_token", "cookie"}
+        missing  = required - set(data.keys())
 
-#--> Get link
-@app.route(rule='/generate_link', methods=['POST'])
-def getLink() -> Response:
-    global config
-    try:
-        data : dict = request.get_json()
-        result = {'status':'failed', 'message':'invalid params'}
-        mode = config.get('mode', default_mode)
-        if mode == 1:
-            required_keys = {'fs_id', 'uk', 'shareid', 'timestamp', 'sign', 'js_token', 'cookie'}
-            if all(key in data for key in required_keys):
-                TL = TL1(**{key: data[key] for key in required_keys})
-                TL.generate()
-        elif mode == 2:
-            required_keys = {'url'}
-            if all(key in data for key in required_keys):
-                TL = TL2(**{key: data[key] for key in required_keys})
-            pass
-        elif mode == 3:
-            required_keys = {'shareid', 'uk', 'sign', 'timestamp', 'fs_id'}
-            if all(key in data for key in required_keys):
-                TL = TL3(**{key: data[key] for key in required_keys})
-                TL.generate()
-        else : result = {'status':'failed', 'message':'gaada mode nya'}
-        result = TL.result
-    except: result = {'status':'failed', 'message':'wrong payload'}
-    return Response(response=json.dumps(obj=result, sort_keys=False), mimetype='application/json')
+        if missing:
+            return json_response({
+                "status": "failed",
+                "message": f"Missing params: {', '.join(sorted(missing))}"
+            }, 400)
 
-#--> Initialization
-if __name__ == '__main__':
-    app.run(debug=True)
+        tl = TL1(
+            fs_id     = str(data["fs_id"]),
+            uk        = str(data["uk"]),
+            shareid   = str(data["shareid"]),
+            timestamp = str(data["timestamp"]),
+            sign      = str(data["sign"]),
+            js_token  = str(data["js_token"]),
+            cookie    = str(data["cookie"])
+        )
+        tl.generate()
+        result = tl.result
 
-# https://1024terabox.com/s/1eBHBOzcEI-VpUGA_xIcGQg
-# https://dm.terabox.com/indonesian/sharing/link?surl=KKG3LQ7jaT733og97CBcGg
+        if result.get("status") == "success":
+            dl = result.get("download_link", {})
+            # stream_link: prefer url_2 (direct CDN, best for inline playback)
+            result["stream_link"] = dl.get("url_2") or dl.get("url_1") or ""
+            print(f"[generate_link] SUCCESS – links: {list(dl.keys())}")
+        else:
+            print("[generate_link] FAILED")
+
+        return json_response(result)
+
+    except Exception as e:
+        return json_response({"status": "failed", "message": str(e)})
+
+
+# ── run ───────────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5000)
