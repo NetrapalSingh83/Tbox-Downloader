@@ -937,6 +937,81 @@ textarea {
   box-shadow: 0 8px 25px var(--shadow-color-hover);
 }
 
+/* ── Download links box (3 links returned by /generate_link) ── */
+.download-links-box {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.download-link-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--border-radius);
+  background: var(--card-bg-hover);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: background var(--transition-speed) ease,
+              box-shadow  var(--transition-speed) ease,
+              transform   var(--transition-speed) ease;
+}
+
+.download-link-btn:hover {
+  background: linear-gradient(to right, rgba(249,115,22,0.15), rgba(147,51,234,0.15));
+  border-color: rgba(249, 115, 22, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px var(--shadow-color);
+}
+
+.dl-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+  flex-shrink: 0;
+}
+
+.dl-icon svg { width: 16px; height: 16px; color: #fff; }
+
+.dl-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.dl-label { font-weight: 600; }
+
+.dl-sub {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* ── File action row (Download + Stream buttons side by side) ── */
+.file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  width: 100%;
+}
+
+/* ── Sub-files inside a folder ── */
+.sub-files {
+  width: 100%;
+  margin-top: 1rem;
+  padding-left: 1rem;
+  border-left: 2px solid var(--border-color);
+}
+
 /* Footer */
 .footer {
   background-color: rgba(15, 15, 15, 0.8);
