@@ -14,8 +14,15 @@ class TeraboxFile():
     #--> Main control (get short_url, init authorization, and get root file)
     def search(self, url:str) -> None:
 
-        req : str = self.r.get(url, allow_redirects=True)
-        self.short_url : str = re.search(r'surl=([^ &]+)',str(req.url)).group(1)
+        req = self.r.get(url, allow_redirects=True, timeout=20)
+        match = re.search(r'surl=([^ &]+)', str(req.url))
+        if not match:
+            match = re.search(r'surl=([^ &]+)', str(url))
+        if not match:
+            match = re.search(r'/s/([A-Za-z0-9_\-]+)', str(req.url))
+        if not match:
+            raise ValueError(f"Could not find surl in URL: {req.url}")
+        self.short_url : str = match.group(1)
         self.getAuthorization()
         self.getMainFile()
 
@@ -23,8 +30,11 @@ class TeraboxFile():
     def getAuthorization(self) -> None:
 
         url = f'https://www.terabox.app/wap/share/filelist?surl={self.short_url}'
-        req : str = self.r.get(url, headers=self.headers, allow_redirects=True)
-        js_token = re.search(r'%28%22(.*?)%22%29',str(req.text.replace('\\',''))).group(1)
+        req : str = self.r.get(url, headers=self.headers, allow_redirects=True, timeout=20)
+        match = re.search(r'%28%22(.*?)%22%29', str(req.text.replace('\\','')))
+        if not match:
+            raise ValueError("Could not extract js_token from Terabox page")
+        js_token = match.group(1)
         browser_id = req.cookies.get_dict().get('browserid')
         cookie = 'lang=id;' + ';'.join(['{}={}'.format(a,b) for a,b in self.r.cookies.get_dict().items()])
         
@@ -172,8 +182,8 @@ class Test():
 
     def file(self) -> None:
 
-        url = 'https://1024terabox.com/s/1eBHBOzcEI-VpUGA_xIcGQg' #-> Test File Besar
-        url = 'https://terasharelink.com/s/1QHHiN_C2wyDbckF_V3ssIw' #-> Test File All Format (Video, Gambar)
+        # url = 'https://1024terabox.com/s/1eBHBOzcEI-VpUGA_xIcGQg' #-> Test File Besar
+        # url = 'https://terasharelink.com/s/1QHHiN_C2wyDbckF_V3ssIw' #-> Test File All Format (Video, Gambar)
         url = 'https://www.terabox.com/wap/share/filelist?surl=cmi8P-_NCAHAzxj7MtzZAw' #-> Test File (Zip)
 
         TF = TeraboxFile()
