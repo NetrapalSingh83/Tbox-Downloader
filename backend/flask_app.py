@@ -7,6 +7,8 @@
 import json
 from flask import Flask, Response, request
 from flask_cors import CORS
+from python.terabox1 import TeraboxFile as TF1, TeraboxLink as TL1
+from python.terabox2 import TeraboxFile as TF2, TeraboxLink as TL2
 
 app = Flask(__name__)
 
@@ -84,6 +86,7 @@ def generate_file():
         tf = TF1()
         tf.search(url)
         if tf.result.get("status") == "success":
+            tf.result["mode"] = 1
             print("[Mode 1] SUCCESS")
             return json_response(tf.result)
         err = tf.result.get("status", "unknown")
@@ -98,6 +101,7 @@ def generate_file():
         tf = TF2(cookie="")
         tf.search(url)
         if tf.result.get("status") == "success":
+            tf.result["mode"] = 2
             print("[Mode 2] SUCCESS")
             return json_response(tf.result)
         err = tf.result.get("status", "unknown")
@@ -121,6 +125,21 @@ def generate_link():
     Returns download_link: { url_1, url_2, url_3 } + stream_link
     """
     data     = request.get_json(silent=True) or {}
+    mode = data.get("mode", 1)
+
+    if mode == 2:
+        link = data.get("link")            # the per-file dlink from Mode 2's file list
+        if not link:
+            return json_response({"status": "failed", "message": "link is required for mode 2"}, 400)
+        try:
+            tl = TL2(link)                 # terabox2.TeraboxLink resolves fast mirrors in __init__
+            result = tl.result
+            dl = result.get("download_link", {})
+            result["stream_link"] = dl.get("url_2") or dl.get("url_1") or ""
+            return json_response(result)
+        except Exception as e:
+            return json_response({"status": "failed", "message": str(e)})
+        
     required = {"fs_id", "uk", "shareid", "timestamp", "sign", "js_token", "cookie"}
     missing  = required - set(data.keys())
 
