@@ -16,7 +16,7 @@ app = Flask(__name__)
 # During development: allow all origins.
 # Before deploying: change "*" to your actual frontend URL, e.g.
 #   "https://netrapalsingh83.github.io"
-CORS(app, resources={r"/*": {"origins": "https://netrapalsingh83.github.io/Tbox-Downloader/"}})
+CORS(app, resources={r"/*": {"origins": "https://netrapalsingh83.github.io/Tbox-Downloader/",http://127.0.0.1:5500/}})
 
 from python.terabox1 import TeraboxFile as TF1, TeraboxLink as TL1
 from python.terabox2 import TeraboxFile as TF2
