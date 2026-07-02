@@ -17,9 +17,6 @@ app = Flask(__name__)
 #   "https://netrapalsingh83.github.io"
 CORS(app, resources={r"/*": {"origins": "http://127.0.0.1:5500/"}})
 
-from python.terabox1 import TeraboxFile as TF1, TeraboxLink as TL1
-from python.terabox2 import TeraboxFile as TF2
-
 # ── Force CORS headers on EVERY response (including 500 errors) ───────────────
 @app.after_request
 def add_cors_headers(response):
@@ -134,11 +131,16 @@ def generate_link():
         try:
             tl = TL2(link)                 # terabox2.TeraboxLink resolves fast mirrors in __init__
             result = tl.result
-            dl = result.get("download_link", {})
-            result["stream_link"] = dl.get("url_2") or dl.get("url_1") or ""
+            if result.get("status") == "success":
+                dl = result.get("download_link", {})
+                result["stream_link"] = dl.get("url_2") or dl.get("url_1") or ""
+            elif not result.get("message"):
+                result["message"] = f"Mode 2 link generation failed (raw result: {result})"
+            print(f"[generate_link mode2] result: {result}")
             return json_response(result)
         except Exception as e:
-            return json_response({"status": "failed", "message": str(e)})
+            print(f"[generate_link mode2] Exception: {type(e).__name__}: {e}")
+            return json_response({"status": "failed", "message": f"{type(e).__name__}: {e}" or "Unknown exception in mode 2"})
         
     required = {"fs_id", "uk", "shareid", "timestamp", "sign", "js_token", "cookie"}
     missing  = required - set(data.keys())
@@ -167,13 +169,15 @@ def generate_link():
             result["stream_link"] = dl.get("url_2") or dl.get("url_1") or ""
             print(f"[generate_link] SUCCESS – links: {list(dl.keys())}")
         else:
-            print("[generate_link] FAILED")
+            if not result.get("message"):
+                result["message"] = f"Mode 1 link generation failed (raw result: {result})"
+            print(f"[generate_link] FAILED – raw result: {result}")
 
         return json_response(result)
 
     except Exception as e:
         print(f"[generate_link] Exception: {type(e).__name__}: {e}")
-        return json_response({"status": "failed", "message": str(e)})
+        return json_response({"status": "failed", "message": f"{type(e).__name__}: {e}" or "Unknown exception in mode 1"})
 
 
 # ── run ───────────────────────────────────────────────────────────────────────
